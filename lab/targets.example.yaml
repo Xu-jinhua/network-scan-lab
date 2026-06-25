@@ -1,0 +1,33 @@
+targets:
+  - id: juice-shop
+    name: Juice Shop
+    kind: web
+    ip: 172.28.0.10
+    host: juice-shop
+    url: http://172.28.0.10:3000
+    port: 3000
+
+  - id: webgoat
+    name: WebGoat
+    kind: web
+    ip: 172.28.0.11
+    host: webgoat
+    url: http://172.28.0.11:8080/WebGoat
+    port: 8080
+
+  - id: dvwa
+    name: DVWA
+    kind: web
+    ip: 172.28.0.12
+    host: dvwa
+    url: http://172.28.0.12
+    port: 80
+
+  - id: vampi
+    name: VAmPI
+    kind: api
+    ip: 172.28.0.13
+    host: vampi
+    url: http://172.28.0.13:5000
+    port: 5000
+

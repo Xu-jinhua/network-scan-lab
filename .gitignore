@@ -1,0 +1,8 @@
+runs/
+reports/
+.direnv/
+.venv/
+__pycache__/
+*.pyc
+result
+

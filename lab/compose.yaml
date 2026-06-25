@@ -1,0 +1,51 @@
+name: scanlab
+
+services:
+  juice-shop:
+    image: bkimminich/juice-shop:latest
+    hostname: juice-shop
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    networks:
+      scanlab:
+        ipv4_address: 172.28.0.10
+
+  webgoat:
+    image: webgoat/webgoat:latest
+    hostname: webgoat
+    restart: unless-stopped
+    ports:
+      - "8081:8080"
+      - "9091:9090"
+    networks:
+      scanlab:
+        ipv4_address: 172.28.0.11
+
+  dvwa:
+    image: vulnerables/web-dvwa:latest
+    hostname: dvwa
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    networks:
+      scanlab:
+        ipv4_address: 172.28.0.12
+
+  vampi:
+    image: erev0s/vampi:latest
+    hostname: vampi
+    restart: unless-stopped
+    ports:
+      - "5004:5000"
+    networks:
+      scanlab:
+        ipv4_address: 172.28.0.13
+
+networks:
+  scanlab:
+    name: scanlab
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/24
