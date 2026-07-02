@@ -218,13 +218,3 @@ Use another profile when needed:
 ./scanlab --target https://example.com --profile old --results-dir results/old-profile
 ./scanlab --target https://example.com --profile all --results-dir results/all-profile
 ```
-
-## Notes
-
-- Scan only systems you own or are explicitly authorized to test.
-- If the target is a bare host such as `example.com`, `scanlab` treats it as
-  `http://example.com:80`.
-- Use `--engine docker` if you prefer Docker over the default Podman runtime.
-- The current integration prompts and grammar constraints are tuned for local
-  `llama.cpp` with Gemma. Some hosted OpenAI-compatible APIs may reject or ignore
-  those extra parameters.
