@@ -1,8 +1,8 @@
 runs/
 reports/
+results/
 .direnv/
 .venv/
 __pycache__/
 *.pyc
 result
-

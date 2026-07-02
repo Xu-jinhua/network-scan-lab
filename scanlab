@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import json
+import shlex
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from urllib.parse import urlparse
+
+
+ROOT = Path(__file__).resolve().parent
+IMAGE = "network-scan-scanner"
+DEFAULT_MODEL = "unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL"
+DEFAULT_LLM_SERVER = "http://127.0.0.1:8000/v1"
+
+
+def log(message: str) -> None:
+    print(f"[scanlab] {message}", flush=True)
+
+
+def run(cmd: list[str], cwd: Path | None = None) -> None:
+    log(" ".join(shlex.quote(part) for part in cmd))
+    subprocess.run(cmd, cwd=str(cwd) if cwd else None, check=True)
+
+
+def image_exists(engine: str, image: str) -> bool:
+    return (
+        subprocess.run(
+            [engine, "image", "inspect", image],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        ).returncode
+        == 0
+    )
+
+
+def ensure_scanner_image(engine: str, image: str, rebuild: bool) -> None:
+    if rebuild or not image_exists(engine, image):
+        run([engine, "build", "-t", image, str(ROOT / "scanner")], cwd=ROOT)
+    else:
+        log(f"reuse image {image}")
+
+
+def target_record(raw: str, index: int) -> dict[str, object]:
+    value = raw.strip()
+    if "://" not in value:
+        value = f"http://{value}"
+
+    parsed = urlparse(value)
+    host = parsed.hostname or value.replace("http://", "").replace("https://", "")
+    port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    return {
+        "id": f"target-{index}",
+        "name": host,
+        "kind": "web",
+        "host": host,
+        "url": value,
+        "port": port,
+    }
+
+
+def write_targets(path: Path, targets: list[str]) -> None:
+    payload = {"targets": [target_record(target, idx + 1) for idx, target in enumerate(targets)]}
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+
+def parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(description="Build scanner image, run scanners, then run LLM integration.")
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument("--target", action="append", help="Target URL/domain/IP. Repeat for multiple targets.")
+    source.add_argument("--targets-file", help="Existing scanner targets YAML/JSON file.")
+    p.add_argument("--llm-server", default=DEFAULT_LLM_SERVER, help="OpenAI-compatible API base URL.")
+    p.add_argument("--api-key", default="EMPTY")
+    p.add_argument("--model", default=DEFAULT_MODEL)
+    p.add_argument("--results-dir", default="results")
+    p.add_argument("--profile", default="default", choices=["default", "old", "all", "optional"])
+    p.add_argument("--engine", default="podman", choices=["podman", "docker"])
+    p.add_argument("--network", help="Optional container network, for example: scanlab")
+    p.add_argument("--scanner-image", default=IMAGE)
+    p.add_argument("--rebuild", action="store_true")
+    return p
+
+
+def main() -> None:
+    args = parser().parse_args()
+    results_dir = Path(args.results_dir).expanduser().resolve()
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    ensure_scanner_image(args.engine, args.scanner_image, args.rebuild)
+
+    with tempfile.TemporaryDirectory(prefix="scanlab-") as tmp:
+        tmp_dir = Path(tmp)
+        target_file = tmp_dir / "targets.yaml"
+        if args.targets_file:
+            target_file.write_text(Path(args.targets_file).read_text(encoding="utf-8"), encoding="utf-8")
+        else:
+            write_targets(target_file, args.target)
+
+        scanner_cmd = [
+            args.engine,
+            "run",
+            "--rm",
+            "-v",
+            f"{results_dir}:/app/runs",
+            "-v",
+            f"{tmp_dir}:/inputs:ro",
+        ]
+        if args.network:
+            scanner_cmd += ["--network", args.network]
+        scanner_cmd += [
+            args.scanner_image,
+            "--targets-file",
+            "/inputs/targets.yaml",
+            "--output-dir",
+            "/app/runs",
+            "--profile",
+            args.profile,
+        ]
+        run(scanner_cmd)
+
+    run(
+        [
+            sys.executable,
+            str(ROOT / "integrator" / "integrate.py"),
+            "--input",
+            str(results_dir / "latest" / "aggregated_scan.json"),
+            "--output",
+            str(results_dir / "final_report.json"),
+            "--base-url",
+            args.llm_server,
+            "--api-key",
+            args.api_key,
+            "--model",
+            args.model,
+        ],
+        cwd=ROOT,
+    )
+    log(f"raw: {results_dir / 'latest' / 'aggregated_scan.json'}")
+    log(f"integrated: {results_dir / 'final_report.json'}")
+
+
+if __name__ == "__main__":
+    main()

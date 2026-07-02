@@ -12,6 +12,9 @@ down:
 build-scanner:
     podman build -t network-scan-scanner scanner
 
+scanlab +ARGS:
+    ./scanlab {{ARGS}}
+
 scan TARGETS_FILE="lab/targets.example.yaml" PROFILE="default":
     mkdir -p runs
     podman run --rm --network scanlab -v "$PWD:/work" -v "$PWD/runs:/app/runs" network-scan-scanner --targets-file "/work/{{TARGETS_FILE}}" --output-dir /app/runs --profile {{PROFILE}}

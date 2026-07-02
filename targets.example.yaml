@@ -1,0 +1,16 @@
+targets:
+  - id: app-example
+    name: app.example.com
+    kind: web
+    host: app.example.com
+    domain: app.example.com
+    url: https://app.example.com
+    port: 443
+
+  - id: api-example
+    name: api.example.com
+    kind: web
+    host: api.example.com
+    domain: api.example.com
+    url: https://api.example.com
+    port: 443
